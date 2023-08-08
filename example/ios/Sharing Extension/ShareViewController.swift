@@ -124,33 +124,85 @@ class ShareViewController: SLComposeServiceViewController {
     }
 
     private func handleImages (content: NSExtensionItem, attachment: NSItemProvider, index: Int) {
+        
+        func completed(copied: Bool, newPath: URL) {
+            if(copied) {
+                sharedMedia.append(SharedMediaFile(path: newPath.absoluteString, thumbnail: nil, duration: nil, type: .image))
+            }
+            
+            // If this is the last item, save imagesData in userDefaults and redirect to host app
+            if index == (content.attachments?.count)! - 1 {
+                let userDefaults = UserDefaults(suiteName: "group.\(hostAppBundleIdentifier)")
+                userDefaults?.set(toData(data: sharedMedia), forKey: sharedKey)
+                userDefaults?.synchronize()
+                redirectToHostApp(type: .media)
+            }
+        }
+        
         attachment.loadItem(forTypeIdentifier: imageContentType, options: nil) { [weak self] data, error in
-
-            if error == nil, let url = data as? URL, let this = self {
-
-                // Always copy
-                let fileName = this.getFileName(from: url, type: .image)
-                let newPath = FileManager.default
-                    .containerURL(forSecurityApplicationGroupIdentifier: this.appGroupId)!
-                    .appendingPathComponent(fileName)
-                let copied = this.copyFile(at: url, to: newPath)
-                if(copied) {
-                    this.sharedMedia.append(SharedMediaFile(path: newPath.absoluteString, thumbnail: nil, duration: nil, type: .image))
+            
+            if error == nil, let this = self {
+                
+                let groupRootURL = FileManager.default
+                    .containerURL(forSecurityApplicationGroupIdentifier: "group.\(this.hostAppBundleIdentifier)")!
+                
+                if let url = data as? URL {
+                    // Always copy
+                    let fileName = this.getFileName(from: url, type: .image)
+                    let newPath = groupRootURL.appendingPathComponent(fileName)
+                    let copied = this.copyFile(at: url, to: newPath)
+                    completed(copied: copied, newPath: newPath)
+                } else if let image = data as? UIImage,
+                          let jpegData = UIImageJPEGRepresentation(image, 1.0) {
+                    
+                    let fileName = "\(Int64(Date().timeIntervalSince1970)).jpg"
+                    let newPath = groupRootURL.appendingPathComponent(fileName)
+                    
+                    var copied = false
+                    do {
+                        try jpegData.write(to: newPath)
+                        copied = true
+                    } catch {
+                        
+                    }
+                    completed(copied: copied, newPath: newPath)
+                } else {
+                    self?.dismissWithError()
                 }
-
-                // If this is the last item, save imagesData in userDefaults and redirect to host app
-                if index == (content.attachments?.count)! - 1 {
-                    let userDefaults = UserDefaults(suiteName: this.appGroupId)
-                    userDefaults?.set(this.toData(data: this.sharedMedia), forKey: this.sharedKey)
-                    userDefaults?.synchronize()
-                    this.redirectToHostApp(type: .media)
-                }
-
             } else {
-                 self?.dismissWithError()
+                self?.dismissWithError()
             }
         }
     }
+
+    // private func handleImages (content: NSExtensionItem, attachment: NSItemProvider, index: Int) {
+    //     attachment.loadItem(forTypeIdentifier: imageContentType, options: nil) { [weak self] data, error in
+
+    //         if error == nil, let url = data as? URL, let this = self {
+
+    //             // Always copy
+    //             let fileName = this.getFileName(from: url, type: .image)
+    //             let newPath = FileManager.default
+    //                 .containerURL(forSecurityApplicationGroupIdentifier: this.appGroupId)!
+    //                 .appendingPathComponent(fileName)
+    //             let copied = this.copyFile(at: url, to: newPath)
+    //             if(copied) {
+    //                 this.sharedMedia.append(SharedMediaFile(path: newPath.absoluteString, thumbnail: nil, duration: nil, type: .image))
+    //             }
+
+    //             // If this is the last item, save imagesData in userDefaults and redirect to host app
+    //             if index == (content.attachments?.count)! - 1 {
+    //                 let userDefaults = UserDefaults(suiteName: this.appGroupId)
+    //                 userDefaults?.set(this.toData(data: this.sharedMedia), forKey: this.sharedKey)
+    //                 userDefaults?.synchronize()
+    //                 this.redirectToHostApp(type: .media)
+    //             }
+
+    //         } else {
+    //              self?.dismissWithError()
+    //         }
+    //     }
+    // }
 
     private func handleVideos (content: NSExtensionItem, attachment: NSItemProvider, index: Int) {
         attachment.loadItem(forTypeIdentifier: videoContentType, options: nil) { [weak self] data, error in
