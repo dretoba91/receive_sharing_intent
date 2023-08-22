@@ -131,20 +131,22 @@ class ShareViewController: SLComposeServiceViewController {
             }
             
             // If this is the last item, save imagesData in userDefaults and redirect to host app
-            if index == (content.attachments?.count)! - 1 {
-                let userDefaults = UserDefaults(suiteName: "group.\(hostAppBundleIdentifier)")
-                userDefaults?.set(toData(data: sharedMedia), forKey: sharedKey)
-                userDefaults?.synchronize()
-                redirectToHostApp(type: .media)
-            }
+            if index == (content.attachments?.count ?? 0) - 1 {
+            let userDefaults = UserDefaults(suiteName: "group.\(hostAppBundleIdentifier)")
+            userDefaults?.set(toData(data: sharedMedia), forKey: sharedKey)
+            userDefaults?.synchronize()
+            redirectToHostApp(type: .media)
+        }
         }
         
         attachment.loadItem(forTypeIdentifier: imageContentType, options: nil) { [weak self] data, error in
-            
-            if error == nil, let this = self {
+
+        guard let this = self else { return }
+
+        if error == nil {
                 
                 let groupRootURL = FileManager.default
-                    .containerURL(forSecurityApplicationGroupIdentifier: "group.\(this.hostAppBundleIdentifier)")!
+                .containerURL(forSecurityApplicationGroupIdentifier: "group.\(this.hostAppBundleIdentifier)")!
                 
                 if let url = data as? URL {
                     // Always copy
@@ -167,10 +169,10 @@ class ShareViewController: SLComposeServiceViewController {
                     }
                     completed(copied: copied, newPath: newPath)
                 } else {
-                    self?.dismissWithError()
+                    this.dismissWithError()
                 }
             } else {
-                self?.dismissWithError()
+                this.dismissWithError()
             }
         }
     }
